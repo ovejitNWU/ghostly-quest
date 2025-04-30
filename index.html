@@ -1,108 +1,193 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>ভুতুড়ে অভিযান (Ghostly Quest)</title>
+  <title>Ghost Shooter</title>
   <style>
     body {
-      background-color: #111;
-      color: #eee;
-      font-family: 'Segoe UI', sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 20px;
-      border: 2px solid #444;
-      border-radius: 15px;
-      background-image: linear-gradient(to bottom, #111, #222);
+      margin: 0;
+      background: black;
+      overflow: hidden;
     }
-    h1 {
-      text-align: center;
-      color: #f39c12;
-    }
-    #story {
-      white-space: pre-wrap;
-      margin-bottom: 20px;
-      min-height: 150px;
-    }
-    button {
-      margin: 5px;
-      padding: 10px 20px;
-      background: #444;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #666;
+    canvas {
+      display: block;
+      background: #111;
     }
   </style>
 </head>
 <body>
-  <h1>ভুতুড়ে অভিযান 👻</h1>
-  <div id="story">লোড হচ্ছে...</div>
-  <div>
-    <button id="btn1">পছন্দ ১</button>
-    <button id="btn2">পছন্দ ২</button>
-  </div>
+<canvas id="game"></canvas>
 
-  <script>
-    let storyIndex = 0;
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
 
-    const storyEl = document.getElementById("story");
-    const btn1 = document.getElementById("btn1");
-    const btn2 = document.getElementById("btn2");
+let keys = {};
+let bullets = [];
+let enemies = [];
+let enemyBullets = [];
+let score = 0;
+let health = 3;
 
-    const updateStory = () => {
-      if (storyIndex === 0) {
-        storyEl.innerText = "🌘 রাত গভীর, তুমি ঢুকেছো পুরনো এক শ্মশানে...\nহঠাৎ একটা আওয়াজ — কিঃ কিঃ কিঃ!";
-        btn1.innerText = "আওয়াজের দিকে যাও";
-        btn2.innerText = "পালিয়ে যাও";
-      } else if (storyIndex === 1) {
-        storyEl.innerText = "👻 এক পেত্নি তোমার সামনে এসে দাঁড়ালো!";
-        btn1.innerText = "কথা বলো";
-        btn2.innerText = "দৌড়াও";
-      } else if (storyIndex === 2) {
-        storyEl.innerText = "পেত্নি বললো: 'ভয় পেও না, আমি তোমার বন্ধু!'\n🎉 তোমরা গল্প করতে করতে বন্ধু হয়ে গেলে।";
-        endGame(true);
-      } else if (storyIndex === 3) {
-        storyEl.innerText = "তুমি দৌড়ে পালালে, পিছলে পড়ে গেলে কাদা জলে!\n👻 পেত্নি হেসে হেসে গায়েব হয়ে গেল!";
-        endGame(false);
-      } else if (storyIndex === 4) {
-        storyEl.innerText = "😱 হঠাৎ ঘাড় ঘুরিয়ে দেখলে — এক সাদা কাপড় পরা ভূত তোমার পিছনে দাঁড়িয়ে!\nতুমি চিৎকার করে জ্ঞান হারালে!";
-        endGame(false);
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+class Player {
+  constructor() {
+    this.width = 50;
+    this.height = 50;
+    this.x = canvas.width / 2 - this.width / 2;
+    this.y = canvas.height - this.height - 20;
+    this.speed = 6;
+  }
+
+  draw() {
+    ctx.fillStyle = "cyan";
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+
+  move() {
+    if (keys["ArrowLeft"] && this.x > 0) this.x -= this.speed;
+    if (keys["ArrowRight"] && this.x + this.width < canvas.width) this.x += this.speed;
+  }
+
+  shoot() {
+    bullets.push(new Bullet(this.x + this.width/2, this.y));
+  }
+}
+
+class Bullet {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.speed = 8;
+    this.size = 5;
+  }
+
+  draw() {
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  update() {
+    this.y -= this.speed;
+  }
+}
+
+class Enemy {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.size = 40;
+    this.speed = 1 + Math.random()*2;
+  }
+
+  draw() {
+    ctx.fillStyle = "red";
+    ctx.fillRect(this.x, this.y, this.size, this.size);
+  }
+
+  update() {
+    this.y += this.speed;
+    if (Math.random() < 0.01) {
+      enemyBullets.push(new EnemyBullet(this.x + this.size/2, this.y + this.size));
+    }
+  }
+}
+
+class EnemyBullet {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.size = 5;
+    this.speed = 4;
+  }
+
+  draw() {
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  update() {
+    this.y += this.speed;
+  }
+}
+
+const player = new Player();
+
+function spawnEnemy() {
+  const x = Math.random() * (canvas.width - 40);
+  enemies.push(new Enemy(x, -40));
+}
+setInterval(spawnEnemy, 1000);
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw player
+  player.move();
+  player.draw();
+
+  // Draw bullets
+  bullets.forEach((b, i) => {
+    b.update();
+    b.draw();
+    if (b.y < 0) bullets.splice(i, 1);
+  });
+
+  // Draw enemies
+  enemies.forEach((e, ei) => {
+    e.update();
+    e.draw();
+
+    bullets.forEach((b, bi) => {
+      if (b.x > e.x && b.x < e.x + e.size && b.y > e.y && b.y < e.y + e.size) {
+        enemies.splice(ei, 1);
+        bullets.splice(bi, 1);
+        score++;
       }
-    };
+    });
 
-    const endGame = (win) => {
-      btn1.disabled = true;
-      btn2.disabled = true;
-      setTimeout(() => {
-        alert(win ? "অভিনন্দন! তুমি বেঁচে গেছো!" : "গেম ওভার! আবার চেষ্টা করো!");
-      }, 300);
-    };
+    if (e.y + e.size > canvas.height) enemies.splice(ei, 1);
+  });
 
-    btn1.onclick = () => {
-      if (storyIndex === 0) {
-        storyIndex = 1;
-      } else if (storyIndex === 1) {
-        storyIndex = 2;
+  // Enemy bullets
+  enemyBullets.forEach((eb, ei) => {
+    eb.update();
+    eb.draw();
+    if (eb.y > canvas.height) enemyBullets.splice(ei, 1);
+    if (
+      eb.x > player.x && eb.x < player.x + player.width &&
+      eb.y > player.y && eb.y < player.y + player.height
+    ) {
+      health--;
+      enemyBullets.splice(ei, 1);
+      if (health <= 0) {
+        alert("Game Over! স্কোর: " + score);
+        location.reload();
       }
-      updateStory();
-    };
+    }
+  });
 
-    btn2.onclick = () => {
-      if (storyIndex === 0) {
-        storyIndex = 4;
-      } else if (storyIndex === 1) {
-        storyIndex = 3;
-      }
-      updateStory();
-    };
+  // UI
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 20, 30);
+  ctx.fillText("Health: " + health, 20, 60);
 
-    // Start game
-    updateStory();
-  </script>
+  requestAnimationFrame(animate);
+}
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") player.shoot();
+});
+
+animate();
+</script>
 </body>
 </html>
